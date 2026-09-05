@@ -6,14 +6,10 @@ __pycache__/
 .env.*
 !.env.example
 
-# ChromaDB local persistence
+# Derived data layer (regenerated locally from data/raw/ + models/, no
+# network needed — see scripts/build_sqlite.py, scripts/build_chroma.py)
+db/*.sqlite
 db/chroma/
-
-# Raw dataset dumps (large, not tracked in LFS — re-downloaded via scripts/)
-data/raw/news-copy/*
-data/raw/mdaigt/*
-!data/raw/news-copy/.gitkeep
-!data/raw/mdaigt/.gitkeep
 
 # OS / editor
 .DS_Store
@@ -27,3 +23,6 @@ frontend/.vite/
 
 # Jupyter
 .ipynb_checkpoints/
+
+# Colab-trained model outputs (added to LFS tracking when populated)
+data/raw/*.zip

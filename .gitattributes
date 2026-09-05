@@ -4,3 +4,8 @@
 *.ckpt filter=lfs diff=lfs merge=lfs -text
 *.h5 filter=lfs diff=lfs merge=lfs -text
 *.onnx filter=lfs diff=lfs merge=lfs -text
+
+# Real raw dataset files (company laptop can't reach GitHub/HF either — see
+# constraint 0.3 — so these travel via LFS instead of being re-downloaded).
+data/raw/**/*.parquet filter=lfs diff=lfs merge=lfs -text
+data/raw/**/*.csv filter=lfs diff=lfs merge=lfs -text
