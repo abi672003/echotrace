@@ -1,0 +1,11 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "echotrace-frontend",
+      "runtimeExecutable": "sh",
+      "runtimeArgs": ["-c", "cd /Users/abitha/Documents/Projects/echotrace/frontend && npm run dev"],
+      "port": 5173
+    }
+  ]
+}

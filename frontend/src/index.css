@@ -1,0 +1,65 @@
+:root {
+  --board: #2b241c;
+  --board-shadow: #1c1712;
+  --card: #f2ecd8;
+  --card-shadow: #14100b;
+  --ink: #2a2420;
+  --ink-faint: #6b5f4f;
+  --pin-red: #b23a2e;
+  --thread-red: #b23a2e;
+  --thread-amber: #c98a2c;
+  --accent: #d9c98a;
+  --verdict-clear: #3d6b4f;
+  --verdict-flag: #8b2f26;
+  --verdict-pending: #6b5f4f;
+
+  font-family: "IBM Plex Sans", sans-serif;
+  color-scheme: dark;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+  margin: 0;
+}
+
+body {
+  background:
+    radial-gradient(circle at 20% 10%, rgba(255, 255, 255, 0.03), transparent 40%),
+    repeating-linear-gradient(
+      45deg,
+      var(--board) 0px,
+      var(--board) 2px,
+      var(--board-shadow) 2px,
+      var(--board-shadow) 4px
+    );
+  background-blend-mode: normal;
+  color: var(--card);
+}
+
+::selection {
+  background: var(--pin-red);
+  color: var(--card);
+}
+
+.mono {
+  font-family: "IBM Plex Mono", monospace;
+}
+
+.typewriter {
+  font-family: "Special Elite", "IBM Plex Mono", monospace;
+}
+
+button {
+  font-family: inherit;
+  cursor: pointer;
+}
+
+a {
+  color: inherit;
+}
