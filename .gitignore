@@ -1,0 +1,29 @@
+venv/
+.venv/
+__pycache__/
+*.pyc
+.env
+.env.*
+!.env.example
+
+# ChromaDB local persistence
+db/chroma/
+
+# Raw dataset dumps (large, not tracked in LFS — re-downloaded via scripts/)
+data/raw/news-copy/*
+data/raw/mdaigt/*
+!data/raw/news-copy/.gitkeep
+!data/raw/mdaigt/.gitkeep
+
+# OS / editor
+.DS_Store
+.vscode/
+.idea/
+
+# Node (frontend)
+node_modules/
+frontend/dist/
+frontend/.vite/
+
+# Jupyter
+.ipynb_checkpoints/
