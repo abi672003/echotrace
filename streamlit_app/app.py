@@ -19,39 +19,91 @@ st.set_page_config(page_title="EchoTrace", page_icon="🔎", layout="wide")
 
 
 # ---------------------------------------------------------------------------
-# Styling — a restrained, "investigation" visual identity that works with
-# Streamlit's own layout system rather than fighting it.
+# Styling — a distinct "newsroom verification" identity: deep ink-navy
+# dominant, a warm copper accent (an ink-stamp feel, not neon), an editorial
+# serif for headings paired with a clean sans for body/UI text. Built to
+# work with Streamlit's own component structure rather than fight it.
 # ---------------------------------------------------------------------------
 
 st.markdown(
     """
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Newsreader:ital,opsz,wght@0,6..72,500;0,6..72,700;1,6..72,500&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet">
     <style>
-    .stApp { background-color: #14110d; }
-    h1, h2, h3 { color: #d9c98a; }
-    .echotrace-card {
-        background: #f2ecd8;
-        color: #2a2420;
-        border-radius: 4px;
-        padding: 16px 18px;
-        margin-bottom: 10px;
-        box-shadow: 0 3px 8px rgba(0,0,0,0.4);
+    html, body, [class*="css"] { font-family: 'IBM Plex Sans', sans-serif; }
+    .stApp { background-color: #0F1B2D; }
+    [data-testid="stSidebar"] { background-color: #0A1220; border-right: 1px solid #213655; }
+    [data-testid="stHeader"] { background-color: transparent; }
+    h1, h2, h3 {
+        font-family: 'Newsreader', serif;
+        font-weight: 600;
+        color: #E9E4D8;
+        letter-spacing: 0.01em;
     }
-    .echotrace-card .card-title { font-weight: 700; margin-bottom: 4px; }
-    .echotrace-card .card-meta { font-size: 0.8rem; color: #6b5f4f; }
+    .stCaption, [data-testid="stCaptionContainer"] { color: #8C97AC !important; }
+    p, span, label, div { color: #E9E4D8; }
+    .stTabs [data-baseweb="tab-list"] { gap: 4px; border-bottom: 1px solid #213655; }
+    .stTabs [data-baseweb="tab"] {
+        color: #8C97AC;
+        font-weight: 500;
+    }
+    .stTabs [aria-selected="true"] {
+        color: #E0974F !important;
+        border-bottom: 2px solid #C67C3E !important;
+    }
+    .stTextInput input, .stSelectbox div[data-baseweb="select"] > div {
+        background-color: #16243A;
+        color: #E9E4D8;
+        border: 1px solid #213655;
+        border-radius: 4px;
+    }
+    .stTextInput input:focus { border-color: #C67C3E; }
+    .stButton > button {
+        background-color: #16243A;
+        color: #E9E4D8;
+        border: 1px solid #213655;
+        border-radius: 4px;
+        font-weight: 500;
+    }
+    .stButton > button:hover { border-color: #C67C3E; color: #E0974F; }
+    .stButton > button[kind="primary"], .stFormSubmitButton > button[kind="primary"] {
+        background-color: #C67C3E;
+        border: none;
+        color: #0A1220;
+        font-weight: 600;
+    }
+    .stButton > button[kind="primary"]:hover,
+    .stFormSubmitButton > button[kind="primary"]:hover { background-color: #E0974F; color: #0A1220; }
+    [data-testid="stMetricValue"] { color: #E0974F; font-family: 'Newsreader', serif; }
+    [data-testid="stMetricLabel"] { color: #8C97AC; }
+    .echotrace-card {
+        background: #16243A;
+        color: #E9E4D8;
+        border: 1px solid #213655;
+        border-left: 3px solid #C67C3E;
+        border-radius: 3px;
+        padding: 14px 16px;
+        margin-bottom: 8px;
+    }
+    .echotrace-card .card-title { font-weight: 600; margin-bottom: 3px; }
+    .echotrace-card .card-meta { font-size: 0.8rem; color: #8C97AC; }
     .verdict-stamp {
         display: inline-block;
-        border: 4px solid;
-        border-radius: 6px;
+        border: 3px solid;
+        border-radius: 4px;
         padding: 10px 26px;
-        font-weight: 800;
+        font-family: 'Newsreader', serif;
+        font-weight: 700;
+        font-style: italic;
         font-size: 1.3rem;
-        letter-spacing: 0.06em;
-        transform: rotate(-2deg);
+        letter-spacing: 0.04em;
+        transform: rotate(-1.5deg);
         margin-bottom: 18px;
     }
-    .verdict-clear { border-color: #3d6b4f; color: #3d6b4f; }
-    .verdict-flag { border-color: #8b2f26; color: #8b2f26; }
-    .verdict-pending { border-color: #6b5f4f; color: #6b5f4f; }
+    .verdict-clear { border-color: #4C9A83; color: #4C9A83; }
+    .verdict-flag { border-color: #C1503C; color: #C1503C; }
+    .verdict-pending { border-color: #7A8699; color: #7A8699; }
     </style>
     """,
     unsafe_allow_html=True,
@@ -173,18 +225,20 @@ def render_evidence(evidence: list[dict], model_available: bool):
     scores = [e["score"] * 100 if e.get("score") is not None else 0 for e in evidence]
 
     fig = go.Figure()
-    fig.add_bar(name="Similarity to target", x=ids, y=similarities, marker_color="#5583D1")
+    fig.add_bar(name="Similarity to target", x=ids, y=similarities, marker_color="#5B7FA6")
     if model_available:
-        fig.add_bar(name="AI-text score", x=ids, y=scores, marker_color="#b23a2e")
+        fig.add_bar(name="AI-text score", x=ids, y=scores, marker_color="#C1503C")
     fig.update_layout(
         barmode="group",
         height=360,
         margin=dict(l=10, r=10, t=30, b=10),
         paper_bgcolor="rgba(0,0,0,0)",
         plot_bgcolor="rgba(0,0,0,0)",
-        font_color="#e8dcc4",
+        font_color="#E9E4D8",
+        font_family="IBM Plex Sans, sans-serif",
         legend=dict(orientation="h", y=1.1),
         yaxis_title="%",
+        yaxis=dict(gridcolor="#213655"),
     )
     st.plotly_chart(fig, use_container_width=True)
 
