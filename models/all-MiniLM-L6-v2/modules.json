@@ -15,6 +15,6 @@
     "idx": 2,
     "name": "2",
     "path": "2_Normalize",
-    "type": "sentence_transformers.base.modules.normalize.Normalize"
+    "type": "sentence_transformers.sentence_transformer.modules.normalize.Normalize"
   }
 ]
