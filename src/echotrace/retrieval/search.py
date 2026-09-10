@@ -1,6 +1,12 @@
 """Near-duplicate retrieval over the ChromaDB corpus built by scripts/build_chroma.py."""
 
+import os
 from pathlib import Path
+
+# Must be set before `import chromadb` — otherwise its telemetry client
+# tries to phone home on import/instantiation and can hang for minutes on
+# a slow or restricted network.
+os.environ.setdefault("ANONYMIZED_TELEMETRY", "False")
 
 import chromadb
 

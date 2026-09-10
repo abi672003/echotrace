@@ -6,8 +6,11 @@ because retrieval evaluation needs real cluster ground truth to measure
 against — see docs/DATA_PROVENANCE.md.
 """
 
+import os
 import sys
 from pathlib import Path
+
+os.environ.setdefault("ANONYMIZED_TELEMETRY", "False")
 
 import chromadb
 

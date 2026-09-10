@@ -4,26 +4,15 @@ Agentic system that judges whether a news article is independent reporting
 or an AI-reworded content-farm copy, by retrieving its near-duplicate
 versions and aggregating detection signal across the whole cluster.
 
-## What's real, what's pending
+## Status
 
-Every dataset here is real (see `docs/DATA_PROVENANCE.md`) and every
-pipeline stage is implemented and tested against real data. The one thing
-missing is the fine-tuned RoBERTa detector checkpoint — it must be trained
-in Google Colab (this project can't reach Hugging Face from the eventual
-deployment laptop, and this session can't run multi-hour Colab training
-itself; see constraint 0.3 in the project brief).
+Every dataset is real (see `docs/DATA_PROVENANCE.md`) and every pipeline
+stage is implemented and tested against real data. The RoBERTa detector is
+fine-tuned and committed (`models/echotrace-detector/`). The app is behind
+real authentication — every user has a real account (hashed password) and
+every API request carries a signed session token.
 
-**To finish setup:**
-1. Open `notebooks/finetune_roberta_mdaigt.ipynb` in Google Colab (GPU
-   runtime), upload `data/raw/mdaigt/train_mdaigt_task1.csv` when prompted,
-   run all cells.
-2. Download the resulting `echotrace-detector.zip`, unzip it into
-   `models/echotrace-detector/` (replacing the empty placeholder).
-3. `git add models/echotrace-detector && git commit` (already LFS-tracked).
-4. Copy `.env.example` to `.env` and add your `ANTHROPIC_API_KEY` (needed
-   for the agentic verdict layer in `src/echotrace/agent/`).
-
-## Running it
+## Setup
 
 ```bash
 python3 -m venv venv && source venv/bin/activate
@@ -33,20 +22,34 @@ pip install -r requirements.txt
 python3 scripts/build_sqlite.py
 python3 scripts/build_chroma.py
 
+cp .env.example .env
+# edit .env: set JWT_SECRET (generate with: python3 -c "import secrets; print(secrets.token_hex(32))")
+# and ANTHROPIC_API_KEY if you want the agentic verdict layer live
+```
+
+## Running it
+
+```bash
 # backend
 python3 -m uvicorn echotrace.api.main:app --app-dir src --port 8010
 
-# frontend (separate terminal)
-cd frontend && npm install && npm run dev
+# Streamlit frontend (separate terminal, production client)
+streamlit run streamlit_app/app.py
 ```
 
-Open http://localhost:5173. Detection scores show "pending" until the
-checkpoint from step 1 above is in place.
+Open the URL Streamlit prints (usually http://localhost:8501). First run:
+create an account on the "Create account" tab, then log in — every request
+after that carries your session token.
+
+The old React frontend (`frontend/`) is still in the repo but is no longer
+the primary client — Streamlit is.
 
 ## Layout
 
 - `docs/DATA_PROVENANCE.md` — where every dataset actually came from and how it was verified
 - `docs/ABLATION_DESIGN.md` — the aggregation-vs-single-instance ablation and its honest scope
+- `src/echotrace/auth/` — password hashing + JWT session tokens
 - `src/echotrace/` — retrieval, detection, aggregation, agent, API
-- `scripts/run_ablation.py` — run once the detector checkpoint is in place
+- `streamlit_app/app.py` — the production frontend (login → case investigation)
+- `scripts/run_ablation.py` — the aggregated-vs-single-instance ablation
 - `tests/` — `pytest tests/`

@@ -1,5 +1,5 @@
 """EchoTrace API: wires the real retrieval/detection/aggregation/agent
-pipeline to HTTP endpoints for the frontend.
+pipeline to HTTP endpoints for the frontend, behind real authentication.
 
 Detection/agent endpoints depend on the fine-tuned RoBERTa checkpoint and
 an ANTHROPIC_API_KEY respectively — until those are in place, this returns
@@ -12,11 +12,17 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT))
 
-from fastapi import FastAPI, HTTPException
+from dotenv import load_dotenv
+
+load_dotenv(ROOT.parent / ".env")
+
+from fastapi import Depends, FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
-from pydantic import BaseModel
+from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
+from pydantic import BaseModel, Field
 
 from echotrace.aggregation.aggregate import aggregate
+from echotrace.auth.security import AuthError, authenticate_user, decode_access_token, register_user
 from echotrace.db import get_connection
 from echotrace.retrieval.search import find_near_duplicates
 
@@ -24,10 +30,21 @@ app = FastAPI(title="EchoTrace API")
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:5173"],
+    allow_origins=["http://localhost:5173", "http://localhost:8501"],
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+bearer_scheme = HTTPBearer(auto_error=False)
+
+
+def get_current_user(credentials: HTTPAuthorizationCredentials | None = Depends(bearer_scheme)) -> str:
+    if credentials is None:
+        raise HTTPException(401, "Not authenticated — missing bearer token.")
+    try:
+        return decode_access_token(credentials.credentials)
+    except AuthError as e:
+        raise HTTPException(401, str(e))
 
 
 class InvestigateRequest(BaseModel):
@@ -36,13 +53,49 @@ class InvestigateRequest(BaseModel):
     k: int = 5
 
 
+class AuthRequest(BaseModel):
+    username: str = Field(min_length=1, max_length=64)
+    password: str = Field(min_length=8, max_length=256)
+
+
+class TokenResponse(BaseModel):
+    access_token: str
+    token_type: str = "bearer"
+    username: str
+
+
 @app.get("/api/health")
 def health():
     return {"status": "ok"}
 
 
+@app.post("/api/auth/register", response_model=TokenResponse)
+def register(req: AuthRequest):
+    conn = get_connection()
+    try:
+        register_user(conn, req.username, req.password)
+        token = authenticate_user(conn, req.username, req.password)
+    except AuthError as e:
+        raise HTTPException(400, str(e))
+    finally:
+        conn.close()
+    return TokenResponse(access_token=token, username=req.username.strip())
+
+
+@app.post("/api/auth/login", response_model=TokenResponse)
+def login(req: AuthRequest):
+    conn = get_connection()
+    try:
+        token = authenticate_user(conn, req.username, req.password)
+    except AuthError as e:
+        raise HTTPException(401, str(e))
+    finally:
+        conn.close()
+    return TokenResponse(access_token=token, username=req.username.strip())
+
+
 @app.get("/api/articles/sample")
-def sample_articles(limit: int = 20):
+def sample_articles(limit: int = 20, user: str = Depends(get_current_user)):
     """Real articles from clusters with 2+ members, for the case-file
     browser to pick an investigation target from."""
     conn = get_connection()
@@ -63,7 +116,7 @@ def sample_articles(limit: int = 20):
 
 
 @app.get("/api/articles/{article_id}")
-def get_article(article_id: str):
+def get_article(article_id: str, user: str = Depends(get_current_user)):
     conn = get_connection()
     row = conn.execute(
         "SELECT id, text, cluster_id, source FROM articles WHERE id = ?", (article_id,)
@@ -84,7 +137,7 @@ def _try_score(text: str) -> float | None:
 
 
 @app.post("/api/investigate")
-def investigate(req: InvestigateRequest):
+def investigate(req: InvestigateRequest, user: str = Depends(get_current_user)):
     """Real pipeline run: retrieval (always available) + detection (only if
     the fine-tuned checkpoint is present) + aggregation."""
     duplicates_raw = find_near_duplicates(req.text, k=req.k, exclude_id=req.article_id)
@@ -109,7 +162,7 @@ def investigate(req: InvestigateRequest):
 
 
 @app.post("/api/verdict")
-def verdict(req: InvestigateRequest):
+def verdict(req: InvestigateRequest, user: str = Depends(get_current_user)):
     """Full agentic verdict — requires both the detector checkpoint and
     ANTHROPIC_API_KEY."""
     try:
