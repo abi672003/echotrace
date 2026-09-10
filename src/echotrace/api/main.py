@@ -127,6 +127,26 @@ def get_article(article_id: str, user: str = Depends(get_current_user)):
     return {"id": row[0], "text": row[1], "cluster_id": row[2], "source": row[3]}
 
 
+@app.get("/api/mdaigt/sample")
+def mdaigt_sample(limit: int = 20, split: str = "test", user: str = Depends(get_current_user)):
+    """Real M-DAIGT samples with their real human/machine label, so the
+    detector can be demonstrated against genuine AI-authored text — the
+    NEWS-COPY corpus used for /api/articles/sample is entirely real
+    historical (pre-LLM) newspaper text, so it can never show a positive
+    AI-text result; this is the real dataset that can."""
+    conn = get_connection()
+    rows = conn.execute(
+        """
+        SELECT id, substr(text, 1, 240) AS preview, label FROM articles
+        WHERE source = 'mdaigt-task1-news' AND split = ?
+        ORDER BY RANDOM() LIMIT ?
+        """,
+        (split, limit),
+    ).fetchall()
+    conn.close()
+    return [{"id": r[0], "preview": r[1], "label": r[2]} for r in rows]
+
+
 def _try_score(text: str) -> float | None:
     try:
         from echotrace.detection.detector import score_text
@@ -134,6 +154,19 @@ def _try_score(text: str) -> float | None:
         return score_text(text)
     except FileNotFoundError:
         return None
+
+
+@app.post("/api/detect")
+def detect(req: InvestigateRequest, user: str = Depends(get_current_user)):
+    """Single-instance detection only (no retrieval/aggregation) — used to
+    demonstrate the detector directly against labeled M-DAIGT examples."""
+    score = _try_score(req.text)
+    if score is None:
+        return {
+            "model_available": False,
+            "message": "Detection scores unavailable — fine-tuned RoBERTa checkpoint not found.",
+        }
+    return {"model_available": True, "score": score}
 
 
 @app.post("/api/investigate")
