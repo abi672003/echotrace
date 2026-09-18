@@ -1,8 +1,10 @@
-"""Ingest real NEWS-COPY and M-DAIGT data into the SQLite data layer.
+"""Ingest real NEWS-COPY and M-DAIGT data into the SQL data layer.
 
 Sources and verification are documented in docs/DATA_PROVENANCE.md. This
 script does not fabricate any data — it only reshapes the real downloaded
-files into the schema defined in src/echotrace/db.py.
+files into the schema defined in src/echotrace/db.py. Idempotent and
+dialect-agnostic (SQLite for local dev, Postgres in Docker Compose) via
+`echotrace.db.upsert_ignore` — safe to rerun.
 """
 
 import hashlib
@@ -10,17 +12,18 @@ import sys
 from pathlib import Path
 
 import pandas as pd
+from sqlalchemy import text as sa_text
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "src"))
 
-from echotrace.db import get_connection  # noqa: E402
+from echotrace.db import articles, duplicate_pairs, get_connection, upsert_ignore  # noqa: E402
 
 RAW = ROOT / "data" / "raw"
 
 
-def article_id(text: str) -> str:
-    return hashlib.sha1(text.encode("utf-8")).hexdigest()
+def article_id(article_text: str) -> str:
+    return hashlib.sha1(article_text.encode("utf-8")).hexdigest()
 
 
 def ingest_news_copy_pairs(conn):
@@ -28,21 +31,25 @@ def ingest_news_copy_pairs(conn):
     n_articles, n_pairs = 0, 0
     for fname in ["train.parquet", "dev.parquet"]:
         df = pd.read_parquet(RAW / "news-copy" / fname)
+        article_rows, pair_rows = [], []
         for row in df.itertuples(index=False):
             id_a, id_b = article_id(row._0), article_id(row._1)
-            for aid, text in [(id_a, row._0), (id_b, row._1)]:
-                conn.execute(
-                    "INSERT OR IGNORE INTO articles (id, text, label, cluster_id, source, split) "
-                    "VALUES (?, ?, NULL, NULL, ?, ?)",
-                    (aid, text, "news-copy-pairs", row.split),
-                )
-            conn.execute(
-                "INSERT INTO duplicate_pairs (article_a_id, article_b_id, label, split, source) "
-                "VALUES (?, ?, ?, ?, ?)",
-                (id_a, id_b, row.Label, row.split, "news-copy-pairs"),
+            article_rows.append(
+                {"id": id_a, "text": row._0, "label": None, "cluster_id": None,
+                 "source": "news-copy-pairs", "split": row.split}
             )
-            n_pairs += 1
-        n_articles += len(df) * 2
+            article_rows.append(
+                {"id": id_b, "text": row._1, "label": None, "cluster_id": None,
+                 "source": "news-copy-pairs", "split": row.split}
+            )
+            pair_rows.append(
+                {"article_a_id": id_a, "article_b_id": id_b, "label": row.Label,
+                 "split": row.split, "source": "news-copy-pairs"}
+            )
+        upsert_ignore(conn, articles, article_rows)
+        conn.execute(duplicate_pairs.insert(), pair_rows)
+        n_pairs += len(pair_rows)
+        n_articles += len(article_rows)
     return n_articles, n_pairs
 
 
@@ -51,13 +58,19 @@ def ingest_news_copy_clusters(conn):
     n = 0
     for fname, split in [("eval_val.parquet", "val"), ("eval_test.parquet", "test")]:
         df = pd.read_parquet(RAW / "news-copy" / fname)
-        for row in df.itertuples(index=False):
-            conn.execute(
-                "INSERT OR IGNORE INTO articles (id, text, label, cluster_id, source, split) "
-                "VALUES (?, ?, NULL, ?, ?, ?)",
-                (row.id, row.article, int(row.cluster), "news-copy-eval-clusters", split),
-            )
-            n += 1
+        rows = [
+            {
+                "id": row.id,
+                "text": row.article,
+                "label": None,
+                "cluster_id": int(row.cluster),
+                "source": "news-copy-eval-clusters",
+                "split": split,
+            }
+            for row in df.itertuples(index=False)
+        ]
+        upsert_ignore(conn, articles, rows)
+        n += len(rows)
     return n
 
 
@@ -87,13 +100,18 @@ def ingest_mdaigt_task1(conn, seed: int = 42):
     }
 
     for split_name, split_df in splits.items():
-        for row in split_df.itertuples(index=False):
-            aid = f"mdaigt-task1-{row.id}"
-            conn.execute(
-                "INSERT OR IGNORE INTO articles (id, text, label, cluster_id, source, split) "
-                "VALUES (?, ?, ?, NULL, ?, ?)",
-                (aid, row.text, row.label, "mdaigt-task1-news", split_name),
-            )
+        rows = [
+            {
+                "id": f"mdaigt-task1-{row.id}",
+                "text": row.text,
+                "label": row.label,
+                "cluster_id": None,
+                "source": "mdaigt-task1-news",
+                "split": split_name,
+            }
+            for row in split_df.itertuples(index=False)
+        ]
+        upsert_ignore(conn, articles, rows)
 
     return {k: len(v) for k, v in splits.items()}
 
@@ -107,10 +125,10 @@ def main():
 
     conn.commit()
 
-    total_articles = conn.execute("SELECT COUNT(*) FROM articles").fetchone()[0]
-    total_pairs = conn.execute("SELECT COUNT(*) FROM duplicate_pairs").fetchone()[0]
+    total_articles = conn.execute(sa_text("SELECT COUNT(*) FROM articles")).fetchone()[0]
+    total_pairs = conn.execute(sa_text("SELECT COUNT(*) FROM duplicate_pairs")).fetchone()[0]
 
-    print("=== EchoTrace SQLite ingestion complete ===")
+    print("=== EchoTrace ingestion complete ===")
     print(f"NEWS-COPY pairwise rows processed: {n_pairs} pairs, ~{n_articles} article-sides")
     print(f"NEWS-COPY eval cluster articles ingested: {n_clusters}")
     print(f"M-DAIGT task1 (news) stratified split (seed=42): {mdaigt_split_sizes}")

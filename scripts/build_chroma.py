@@ -13,6 +13,7 @@ from pathlib import Path
 os.environ.setdefault("ANONYMIZED_TELEMETRY", "False")
 
 import chromadb
+from sqlalchemy import text
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "src"))
@@ -27,7 +28,7 @@ BATCH_SIZE = 256
 def main():
     conn = get_connection()
     rows = conn.execute(
-        "SELECT id, text FROM articles WHERE source = 'news-copy-eval-clusters'"
+        text("SELECT id, text FROM articles WHERE source = 'news-copy-eval-clusters'")
     ).fetchall()
     conn.close()
 

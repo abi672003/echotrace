@@ -19,6 +19,7 @@ import sys
 from pathlib import Path
 
 import pandas as pd
+from sqlalchemy import text
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "src"))
@@ -35,8 +36,8 @@ def main(csv_path: str) -> None:
     for row in manifest.itertuples(index=False):
         aid = f"mdaigt-task1-{row.id}"
         cur = conn.execute(
-            "UPDATE articles SET split = ? WHERE id = ? AND source = 'mdaigt-task1-news'",
-            (row.split, aid),
+            text("UPDATE articles SET split = :split WHERE id = :id AND source = 'mdaigt-task1-news'"),
+            {"split": row.split, "id": aid},
         )
         if cur.rowcount == 0:
             missing += 1
@@ -45,7 +46,7 @@ def main(csv_path: str) -> None:
     conn.commit()
 
     counts = conn.execute(
-        "SELECT split, COUNT(*) FROM articles WHERE source = 'mdaigt-task1-news' GROUP BY split"
+        text("SELECT split, COUNT(*) FROM articles WHERE source = 'mdaigt-task1-news' GROUP BY split")
     ).fetchall()
     conn.close()
 

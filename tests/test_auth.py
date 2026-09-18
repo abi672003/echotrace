@@ -16,12 +16,13 @@ from echotrace.auth.security import (
     register_user,
     verify_password,
 )
-from echotrace.db import get_connection
+from echotrace.db import get_connection, reset_engine_for_tests
 
 
 @pytest.fixture
 def conn(tmp_path):
-    c = get_connection(tmp_path / "test.sqlite")
+    reset_engine_for_tests(f"sqlite:///{(tmp_path / 'test.sqlite').as_posix()}")
+    c = get_connection()
     yield c
     c.close()
 

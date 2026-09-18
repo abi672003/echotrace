@@ -6,18 +6,24 @@ Retrieval, detection, and aggregation (all real, deterministic pipeline
 steps) supply evidence; the agent's job is to reason over that evidence,
 not to re-derive it — it can only pull more evidence via the
 search_more_duplicates tool, never fabricate any.
+
+Evidence is gathered from the live web (retrieval/live_search.py) — the
+same production retrieval path /api/investigate uses — so the agent's
+verdict reflects real, current near-duplicate evidence, not the static
+demo corpus.
 """
 
+import asyncio
 import json
 import os
 from pathlib import Path
 
-from anthropic import Anthropic
+from anthropic import AsyncAnthropic
 from dotenv import load_dotenv
 
 from echotrace.aggregation.aggregate import aggregate
 from echotrace.detection.detector import score_text
-from echotrace.retrieval.search import find_near_duplicates
+from echotrace.retrieval.live_search import find_live_near_duplicates
 
 load_dotenv(Path(__file__).resolve().parents[3] / ".env")
 
@@ -28,7 +34,7 @@ EXPANDED_K = 15
 
 SYSTEM_PROMPT = """You are EchoTrace's verdict agent. You decide whether a news article is \
 independent reporting or an AI-reworded content-farm copy, using retrieval \
-and detection evidence gathered from a real corpus of near-duplicate \
+and detection evidence gathered from the live web's near-duplicate \
 articles.
 
 You will be shown: the target article's own single-instance AI-text-detector \
@@ -86,21 +92,23 @@ TOOLS = [
 ]
 
 
-def _gather_evidence(article_text: str, article_id: str | None, k: int) -> dict:
-    single_score = score_text(article_text)
-    duplicates_raw = find_near_duplicates(article_text, k=k, exclude_id=article_id)
-    duplicates = [
-        {"id": d["id"], "similarity": d["similarity"], "score": score_text(d["text"])}
-        for d in duplicates_raw
-    ]
-    result = aggregate(single_score, duplicates)
+async def _gather_evidence(article_text: str, target_url: str | None, k: int) -> dict:
+    single_score = await asyncio.to_thread(score_text, article_text)
+    duplicates_raw = await find_live_near_duplicates(article_text, k=k, exclude_url=target_url)
+
+    async def _score(dup: dict) -> dict:
+        s = await asyncio.to_thread(score_text, dup["text"])
+        return {"id": dup["id"], "similarity": dup["similarity"], "score": s}
+
+    duplicates = await asyncio.gather(*(_score(d) for d in duplicates_raw))
+    result = aggregate(single_score, list(duplicates))
     return result.to_dict()
 
 
-def run_agent(article_text: str, article_id: str | None = None) -> dict:
-    client = Anthropic(api_key=os.environ.get("ANTHROPIC_API_KEY"))
+async def run_agent(article_text: str, target_url: str | None = None) -> dict:
+    client = AsyncAnthropic(api_key=os.environ.get("ANTHROPIC_API_KEY"))
 
-    evidence = _gather_evidence(article_text, article_id, k=INITIAL_K)
+    evidence = await _gather_evidence(article_text, target_url, k=INITIAL_K)
     search_log = [{"k": INITIAL_K, "n_duplicates_found": len(evidence["evidence"])}]
 
     messages = [
@@ -112,7 +120,7 @@ def run_agent(article_text: str, article_id: str | None = None) -> dict:
     ]
 
     for turn in range(MAX_TURNS):
-        response = client.messages.create(
+        response = await client.messages.create(
             model=MODEL,
             max_tokens=1024,
             system=SYSTEM_PROMPT,
@@ -137,7 +145,7 @@ def run_agent(article_text: str, article_id: str | None = None) -> dict:
             return {"verdict": "escalated", **tool_use.input, "evidence": evidence, "search_log": search_log}
 
         if tool_use.name == "search_more_duplicates":
-            evidence = _gather_evidence(article_text, article_id, k=EXPANDED_K)
+            evidence = await _gather_evidence(article_text, target_url, k=EXPANDED_K)
             search_log.append({"k": EXPANDED_K, "n_duplicates_found": len(evidence["evidence"])})
             messages.append({"role": "assistant", "content": response.content})
             messages.append(

@@ -9,6 +9,7 @@ sentence-transformers>=5.7.0,<6.0.0
 torch>=2.14.0
 transformers>=4.46.0,<5.0.0
 pytest>=8.0.0
+pytest-asyncio>=0.24.0
 fastapi>=0.115.0
 uvicorn[standard]>=0.30.0
 bcrypt>=4.1.0
@@ -16,3 +17,14 @@ pyjwt>=2.9.0
 streamlit>=1.38.0
 requests>=2.32.0
 plotly>=5.24.0
+
+# Production data layer (Phase A) — SQLAlchemy Core over SQLite (local dev)
+# or Postgres (Docker Compose production), selected via DATABASE_URL.
+sqlalchemy>=2.0.35
+psycopg[binary]>=3.2.0
+
+# Live near-duplicate retrieval (Phase B) — GDELT search, article
+# fetch+extract, and query-keyword extraction.
+httpx>=0.27.0
+trafilatura>=1.12.0
+yake>=0.4.8

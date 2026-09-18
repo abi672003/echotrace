@@ -1,8 +1,9 @@
+import { motion } from "framer-motion";
 import type { Evidence } from "../api";
 
 interface Props {
   targetPreview: string;
-  targetId: string;
+  targetLabel: string;
   evidence: Evidence[];
   modelAvailable: boolean;
 }
@@ -23,13 +24,14 @@ function positionFor(index: number, count: number) {
   };
 }
 
-function shortLabel(id: string): string {
-  // ids look like "7_288600912-garden-city-telegram-Mar-21-1974-p-1.jpg"
-  const parts = id.split("-");
-  const namePart = id.split("_")[1] ?? id;
-  const words = namePart.split("-").filter((w) => isNaN(Number(w)));
-  const name = words.slice(0, 3).join(" ");
-  return name || parts[0];
+function labelFor(e: Evidence): string {
+  if (e.title) return e.title.slice(0, 60);
+  if (e.domain) return e.domain;
+  try {
+    return new URL(e.id).hostname;
+  } catch {
+    return e.id.slice(0, 40);
+  }
 }
 
 function threadColor(similarity: number): string {
@@ -38,7 +40,7 @@ function threadColor(similarity: number): string {
   return "rgba(217, 201, 138, 0.35)";
 }
 
-export default function CaseBoard({ targetPreview, targetId, evidence, modelAvailable }: Props) {
+export default function CaseBoard({ targetPreview, targetLabel, evidence, modelAvailable }: Props) {
   const count = evidence.length;
 
   return (
@@ -47,12 +49,13 @@ export default function CaseBoard({ targetPreview, targetId, evidence, modelAvai
         {evidence.map((e, i) => {
           const pos = positionFor(i, count);
           return (
-            <line
+            <motion.line
               key={e.id}
               x1={CENTER.x}
               y1={CENTER.y}
-              x2={pos.x}
-              y2={pos.y}
+              initial={{ x2: CENTER.x, y2: CENTER.y, opacity: 0 }}
+              animate={{ x2: pos.x, y2: pos.y, opacity: 1 }}
+              transition={{ duration: 0.5, delay: 0.15 + i * 0.08, ease: "easeOut" }}
               stroke={threadColor(e.similarity)}
               strokeWidth={0.35}
               vectorEffect="non-scaling-stroke"
@@ -61,23 +64,36 @@ export default function CaseBoard({ targetPreview, targetId, evidence, modelAvai
         })}
       </svg>
 
-      <div className="pin-card target-card" style={{ left: `${CENTER.x}%`, top: `${CENTER.y}%` }}>
+      <motion.div
+        className="pin-card target-card"
+        style={{ left: `${CENTER.x}%`, top: `${CENTER.y}%` }}
+        initial={{ opacity: 0, scale: 0.85 }}
+        animate={{ opacity: 1, scale: 1 }}
+        transition={{ duration: 0.3 }}
+      >
         <div className="pin" />
         <div className="card-label typewriter">TARGET</div>
-        <div className="card-id mono">{shortLabel(targetId)}</div>
+        <div className="card-id mono">{targetLabel}</div>
         <p className="card-preview">{targetPreview}</p>
-      </div>
+      </motion.div>
 
       {evidence.map((e, i) => {
         const pos = positionFor(i, count);
         return (
-          <div
+          <motion.a
             key={e.id}
             className="pin-card duplicate-card"
+            href={e.id.startsWith("http") ? e.id : undefined}
+            target="_blank"
+            rel="noreferrer"
             style={{ left: `${pos.x}%`, top: `${pos.y}%` }}
+            initial={{ opacity: 0, scale: 0.7 }}
+            animate={{ opacity: 1, scale: 1 }}
+            transition={{ duration: 0.35, delay: 0.2 + i * 0.08, type: "spring", stiffness: 260, damping: 20 }}
+            whileHover={{ scale: 1.05 }}
           >
             <div className="pin pin-small" />
-            <div className="card-id mono">{shortLabel(e.id)}</div>
+            <div className="card-id mono">{labelFor(e)}</div>
             <div className="card-stat">
               <span className="stat-label">similarity</span>
               <span className="stat-value">{(e.similarity * 100).toFixed(0)}%</span>
@@ -85,10 +101,10 @@ export default function CaseBoard({ targetPreview, targetId, evidence, modelAvai
             <div className="card-stat">
               <span className="stat-label">AI-text score</span>
               <span className="stat-value">
-                {modelAvailable && e.score !== null ? `${(e.score * 100).toFixed(0)}%` : "pending"}
+                {modelAvailable && e.score !== null ? `${((e.score ?? 0) * 100).toFixed(0)}%` : "pending"}
               </span>
             </div>
-          </div>
+          </motion.a>
         );
       })}
     </div>

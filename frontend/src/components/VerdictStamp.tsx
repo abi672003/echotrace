@@ -1,3 +1,5 @@
+import { motion } from "framer-motion";
+
 interface Props {
   modelAvailable: boolean;
   aggregatedScore?: number;
@@ -21,7 +23,12 @@ export default function VerdictStamp({ modelAvailable, aggregatedScore, singleIn
   const aggregationChangedVerdict = flagged !== singleFlagged;
 
   return (
-    <div className={`stamp ${flagged ? "stamp-flag" : "stamp-clear"}`}>
+    <motion.div
+      className={`stamp ${flagged ? "stamp-flag" : "stamp-clear"}`}
+      initial={{ opacity: 0, scale: 2.2, rotate: -22 }}
+      animate={{ opacity: 1, scale: 1, rotate: -2 }}
+      transition={{ duration: 0.45, ease: [0.2, 0.9, 0.3, 1] }}
+    >
       <span className="stamp-title typewriter">
         {flagged ? "AI-REWORDED COPY" : "INDEPENDENT REPORTING"}
       </span>
@@ -30,6 +37,6 @@ export default function VerdictStamp({ modelAvailable, aggregatedScore, singleIn
         {(100 * (singleInstanceScore ?? 0)).toFixed(0)}%
         {aggregationChangedVerdict ? " · aggregation changed the verdict" : ""}
       </span>
-    </div>
+    </motion.div>
   );
 }

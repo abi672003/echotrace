@@ -1,0 +1,73 @@
+services:
+  backend:
+    build:
+      context: .
+      dockerfile: Dockerfile.backend
+    environment:
+      DATABASE_URL: postgresql+psycopg://echotrace:${POSTGRES_PASSWORD:-echotrace}@db:5432/echotrace
+      JWT_SECRET: ${JWT_SECRET:?set JWT_SECRET in .env — see .env.example}
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
+      CORS_ORIGINS: ${CORS_ORIGINS:-http://localhost:8080}
+    depends_on:
+      db:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8010/api/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 30s
+    restart: unless-stopped
+
+  frontend:
+    build:
+      context: ./frontend
+      args:
+        VITE_API_BASE: ""
+    ports:
+      - "${FRONTEND_PORT:-8080}:80"
+    depends_on:
+      - backend
+    restart: unless-stopped
+
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: echotrace
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-echotrace}
+      POSTGRES_DB: echotrace
+    volumes:
+      - echotrace-db-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U echotrace"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
+  # Optional automatic-HTTPS reverse proxy for a real domain. Off by
+  # default (local/dev use stays plain HTTP on FRONTEND_PORT); bring it up
+  # with `docker compose --profile domain up -d` once DOMAIN is set in .env
+  # and pointed at this host. See DEPLOYMENT.md.
+  caddy:
+    image: caddy:2-alpine
+    profiles: ["domain"]
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy-data:/data
+    environment:
+      # Note: compose interpolates this for every service definition even
+      # when the `domain` profile isn't active, so this can't be a
+      # required (`:?`) var without breaking plain `docker compose up`.
+      # Set DOMAIN in .env before running with --profile domain.
+      DOMAIN: ${DOMAIN:-}
+    depends_on:
+      - frontend
+    restart: unless-stopped
+
+volumes:
+  echotrace-db-data:
+  caddy-data:

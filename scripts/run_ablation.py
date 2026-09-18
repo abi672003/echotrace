@@ -11,6 +11,8 @@ import sys
 from collections import defaultdict
 from pathlib import Path
 
+from sqlalchemy import text
+
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "src"))
 
@@ -39,10 +41,12 @@ def bucket_for(similarity: float) -> str:
 def main():
     conn = get_connection()
     rows = conn.execute(
-        "SELECT id, text, cluster_id FROM articles "
-        "WHERE source = 'news-copy-eval-clusters' "
-        "AND cluster_id IN (SELECT cluster_id FROM articles WHERE source='news-copy-eval-clusters' "
-        "GROUP BY cluster_id HAVING COUNT(*) >= 2)"
+        text(
+            "SELECT id, text, cluster_id FROM articles "
+            "WHERE source = 'news-copy-eval-clusters' "
+            "AND cluster_id IN (SELECT cluster_id FROM articles WHERE source='news-copy-eval-clusters' "
+            "GROUP BY cluster_id HAVING COUNT(*) >= 2)"
+        )
     ).fetchall()
     conn.close()
 
