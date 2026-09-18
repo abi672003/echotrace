@@ -26,3 +26,6 @@ frontend/.vite/
 
 # Colab-trained model outputs (added to LFS tracking when populated)
 data/raw/*.zip
+
+# Local-only corporate proxy CA certs (never committed, machine-specific)
+scratch_ca/

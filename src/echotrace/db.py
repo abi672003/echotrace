@@ -118,6 +118,13 @@ def get_connection() -> Connection:
     return get_engine().connect()
 
 
+# Both engines cap parameters per statement (Postgres: 65535, SQLite's
+# default SQLITE_MAX_VARIABLE_NUMBER: 32766 as of 3.32+) — chunk well under
+# either so a single seeding call never blows past both regardless of how
+# many columns `table` has.
+_UPSERT_CHUNK_SIZE = 500
+
+
 def upsert_ignore(conn: Connection, table: Table, rows: list[dict]) -> None:
     """Bulk-insert `rows`, silently skipping any whose primary key already
     exists — dialect-aware (SQLite / Postgres) so the same seeding code
@@ -130,9 +137,12 @@ def upsert_ignore(conn: Connection, table: Table, rows: list[dict]) -> None:
     elif dialect == "postgresql":
         from sqlalchemy.dialects.postgresql import insert as dialect_insert
     else:
-        conn.execute(table.insert(), rows)
+        for i in range(0, len(rows), _UPSERT_CHUNK_SIZE):
+            conn.execute(table.insert(), rows[i:i + _UPSERT_CHUNK_SIZE])
         return
-    conn.execute(dialect_insert(table).values(rows).on_conflict_do_nothing())
+    for i in range(0, len(rows), _UPSERT_CHUNK_SIZE):
+        chunk = rows[i:i + _UPSERT_CHUNK_SIZE]
+        conn.execute(dialect_insert(table).values(chunk).on_conflict_do_nothing())
 
 
 def reset_engine_for_tests(url: str) -> Engine:

@@ -20,6 +20,12 @@ sys.path.insert(0, str(ROOT / "src"))
 from echotrace.db import articles, duplicate_pairs, get_connection, upsert_ignore  # noqa: E402
 
 RAW = ROOT / "data" / "raw"
+CHUNK_SIZE = 500  # stay well under both engines' per-statement parameter caps
+
+
+def _insert_chunked(conn, table, rows: list[dict]) -> None:
+    for i in range(0, len(rows), CHUNK_SIZE):
+        conn.execute(table.insert(), rows[i:i + CHUNK_SIZE])
 
 
 def article_id(article_text: str) -> str:
@@ -47,7 +53,7 @@ def ingest_news_copy_pairs(conn):
                  "split": row.split, "source": "news-copy-pairs"}
             )
         upsert_ignore(conn, articles, article_rows)
-        conn.execute(duplicate_pairs.insert(), pair_rows)
+        _insert_chunked(conn, duplicate_pairs, pair_rows)
         n_pairs += len(pair_rows)
         n_articles += len(article_rows)
     return n_articles, n_pairs
