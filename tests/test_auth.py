@@ -41,7 +41,15 @@ def test_token_roundtrip():
 
 def test_forged_token_rejected():
     token = create_access_token("alice")
-    tampered = token[:-1] + ("A" if token[-1] != "A" else "B")
+    # Flip a character in the *middle* of the signature segment, not the
+    # last one: base64's final character can carry unused "don't care"
+    # padding bits (since a 32-byte HMAC-SHA256 signature isn't a multiple
+    # of 3 bytes), so tampering the last char is occasionally a no-op —
+    # this was flaky. A middle character always spans a full encoded byte.
+    header, payload, signature = token.split(".")
+    mid = len(signature) // 2
+    flipped = "A" if signature[mid] != "A" else "B"
+    tampered = f"{header}.{payload}.{signature[:mid]}{flipped}{signature[mid + 1:]}"
     with pytest.raises(AuthError):
         decode_access_token(tampered)
 
