@@ -1,0 +1,15 @@
+.venv/
+node_modules/
+.env
+*.db
+dist/
+__pycache__/
+.pytest_cache/
+coverage/
+*.log
+
+# Playwright / browser-driven test artifacts
+test-results/
+playwright-report/
+blob-report/
+playwright/.cache/

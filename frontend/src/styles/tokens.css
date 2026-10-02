@@ -1,0 +1,113 @@
+@import url("https://fonts.googleapis.com/css2?family=Public+Sans:wght@400;600&family=Source+Serif+4:wght@400;600&display=swap");
+@import "tailwindcss";
+
+:root {
+  /* Colour (DESIGN_SYSTEM §2) */
+  --desk: #e4e9ec;
+  --paper: #ffffff;
+  --ink: #18212c;
+  --ink-soft: #566271;
+  --rule: #c8d0d7;
+  --thread: #2c5a87;
+  --marker: #f6dc5a;
+  --campaign: #9c2a4a;
+  --form: #5b4b9a;
+  --organic: #2e7556;
+  --unsure: #6b7580;
+
+  /* Type */
+  --font-sans: "Public Sans", system-ui, sans-serif;
+  --font-serif: "Source Serif 4", Georgia, serif;
+
+  /* Space: 4px base (4, 8, 12, 16, 24, 32, 48 — matches Tailwind's default 4px spacing scale) */
+
+  /* Shape */
+  --radius-sheet: 2px;
+  --radius-control: 6px;
+  --radius-chip: 999px;
+
+  /* Depth: only comment sheets on the board get a shadow */
+  --shadow-sheet:
+    0 1px 2px rgb(24 33 44 / 0.12),
+    0 4px 12px rgb(24 33 44 / 0.06);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --desk: #1c2329;
+    --paper: #262f37;
+    --ink: #e8edf1;
+    --ink-soft: #a5b1bd;
+    --rule: #3a4550;
+    --thread: #7faedb;
+    --marker: #8a7a1e;
+    --campaign: #e08aa2;
+    --form: #b3a6e6;
+    --organic: #7fc7a5;
+    --unsure: #9aa4ae;
+
+    --shadow-sheet:
+      0 1px 2px rgb(0 0 0 / 0.3),
+      0 4px 12px rgb(0 0 0 / 0.2);
+  }
+}
+
+body {
+  background: var(--desk);
+  color: var(--ink);
+  font-family: var(--font-sans);
+  font-size: 1rem;
+  line-height: 1.5;
+  font-variant-numeric: tabular-nums;
+}
+
+/* Accessibility floor (§7): a visible focus ring on every interactive element. */
+:focus-visible {
+  outline: 2px solid var(--thread);
+  outline-offset: 2px;
+}
+
+/* Evidence board settle animation (§4): members ease from the centre outward on first
+   render. Pure CSS so prefers-reduced-motion is honoured without any JS branching. */
+.evidence-board .react-flow__node {
+  transition: transform 400ms ease-out;
+}
+@media (prefers-reduced-motion: reduce) {
+  .evidence-board .react-flow__node {
+    transition: none;
+  }
+}
+
+/* Tailwind v4 CSS-first theme: maps design tokens onto utility classes
+   (bg-desk, text-ink, font-serif, rounded-sheet, shadow-sheet, text-xs..text-2xl). */
+@theme {
+  --color-desk: var(--desk);
+  --color-paper: var(--paper);
+  --color-ink: var(--ink);
+  --color-ink-soft: var(--ink-soft);
+  --color-rule: var(--rule);
+  --color-thread: var(--thread);
+  --color-marker: var(--marker);
+  --color-campaign: var(--campaign);
+  --color-form: var(--form);
+  --color-organic: var(--organic);
+  --color-unsure: var(--unsure);
+
+  --font-sans: var(--font-sans);
+  --font-serif: var(--font-serif);
+
+  /* Scale (rem): 0.8125 · 0.875 · 1 · 1.125 · 1.375 · 1.75 */
+  --text-xs: 0.8125rem;
+  --text-sm: 0.875rem;
+  --text-base: 1rem;
+  --text-base--line-height: 1.5;
+  --text-lg: 1.125rem;
+  --text-xl: 1.375rem;
+  --text-2xl: 1.75rem;
+
+  --radius-sheet: var(--radius-sheet);
+  --radius-control: var(--radius-control);
+  --radius-chip: var(--radius-chip);
+
+  --shadow-sheet: var(--shadow-sheet);
+}
